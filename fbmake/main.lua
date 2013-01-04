@@ -35,8 +35,8 @@ local options = require("options")
 -- register fbmake command options
 
 options.registerCommand{
-	name = {"h", "help"}, 
-	description = "Describe the usage of this program or its subcommands", 
+	name = {"help", "?", "h", }, 
+	introduce = "Describe the usage of this program or its subcommands", 
 	usage = "[SUBCOMMAND]",
 	run = function()
 		local subcmd =  options.getContents()[1]
@@ -45,13 +45,16 @@ options.registerCommand{
 			if (cmd) then
 				return cmd:printHelp()
 			else
-				return print(string.format('"%s": unknown command.', cmd))
+				return print(string.format('"%s": unknown command.', subcmd))
 			end
 		else
-			print("Type 'fbmake -h <subcommand>' for help on a specific subcommand. ")
-			print("Type 'fbmake -v' to see the program version.")
+			print("Type 'fbmake help <subcommand>' for help on a specific subcommand. ")
+			print("Type 'fbmake version' to see the program version.")
 			print()
-			return options.printHelp()
+			options.printHelp()
+			print("FBMake is a tool for build.")
+			print("For additional information, see http://github.com/tdzl2003/fbmake")
+			print()
 		end
 	end,
 	noConfigFile = true,
@@ -59,13 +62,15 @@ options.registerCommand{
 }
 
 options.registerCommand{
-	name = {"v", "version"},
-	description = "Print version of fbmake tool.",
+	name = {"version", "v", },
+	introduce = "Print version of fbmake tool.",
 	--usage = "",
 	run = function()
 		print(string.format("FBMake, version %s", _G.FBMAKE_VERSION))
-		print("Copyright (C) 2013, DengYun")
+		print("   Copyright (C) 2013, DengYun")
+		print()
 		print("FBMake is open source software, see http://github.com/tdzl2003/fbmake")
+		print()
 	end,
 	noConfigFile = true,
 	hideInHelp = true,
@@ -74,8 +79,8 @@ options.registerCommand{
 --TODO: load commands & extensions.
 --TODO: localize
 local configFiles = options.registerGlobalOption{
-	name = {"c", "config-file"},
-	args = true,
+	name = {"config-file"},
+	hasArg = true,
 	multi = true,
 	description = "read user configuation files from directory ARG",
 }
@@ -85,8 +90,7 @@ local command = options.parseCommandLine(arg)
 
 if (command and not command.noConfigFile) then
 	-- read config from config files
-	function configFiles.trigger()
-	end
+	configFiles:unregister()
 
 	for i,v in ipairs(configFiles.values) do
 		options.parseConfigFile(configFiles)

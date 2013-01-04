@@ -44,14 +44,15 @@ local CommandMT = {
 options.Command = CommandMT
 
 -- default field values of command.
-Command.description = "(No description)"
+Command.introduce = ""
+Command.description = ""
 Command.usage = ""
 function Command:run()
 end
 
 function Command:register()
 	if (self.registered) then
-		return
+		return self
 	end
 
 	table.insert(commands, self)
@@ -67,25 +68,32 @@ end
 
 function Command:unregister()
 	if (not self.registered) then
-		return
+		return self
 	end
 
 	removeVal(commands, self)
 	for i,v in ipairs(self.name) do
 		commandRegisters[v] = nil
 	end
-	self.registered = false
+	self.registered = nil
 	return self
 end
 
-function Command:printHelp()
+function Command:registerOption(opt)
+	if (not find(self.options, opt)) then
+		table.insert(self.options, opt)
+	end
+end
+
+function Command:unregisterOption(opt)
+	removeVal(self.options, opt)
 end
 
 ------------------------------------------------------
 -- Option type
 ------------------------------------------------------
 local globalOptions = {}
-local globalOptionRegisters = {}
+local optionRegisters = {}
 
 local Option = {}
 local OptionMT = {
@@ -98,34 +106,52 @@ options.Option = OptionMT
 Option.description = "(No description)"
 
 function Option:trigger(val)
+	if (self.multi) then
+		self.values = self.values or {}
+		self.value = self.value or val
+		table.insert(self.values, val)
+	elseif (self.hasArg) then
+		self.value = val or self.value
+	end
 end
 
-function Option:registerGlobal()
+function Option:register()
 	if (self.registered) then
 		return
 	end
-
-	table.insert(globalOptions, self)
 	for i,v in ipairs(self.name) do
-		globalOptionRegisters[v] = 
-			(globalOptionRegisters[v] and error("Duplicated command name" .. v))
+		optionRegisters[v] = 
+			(optionRegisters[v] and error("Duplicated option name" .. v))
 			or self
 	end
 
 	self.registered = true
-	return self
 end
 
-function Option:unregisterGlobal()
+function Option:unregister()
 	if (not self.registered) then
 		return
 	end
 
-	removeVal(globalOptions, self)
 	for i,v in ipairs(self.name) do
-		globalOptionRegisters[v] = nil
+		optionRegisters[v] = nil
 	end
-	self.registered = false
+	self.registered = nil
+end
+
+function Option:registerGlobal()
+	if (not self.globalRegistered) then
+		table.insert(globalOptions, self)
+		self.globalRegistered = true
+	end
+	return self
+end
+
+function Option:unregisterGlobal()
+	if (self.globalRegistered) then
+		removeVal(globalOptions, self)
+		self.globalRegistered = nil
+	end
 	return self
 end
 
@@ -151,7 +177,7 @@ end
 function options.registerGlobalOption(args)
 	_initNameArgs(args)
 	setmetatable(args, OptionMT)
-	return args:registerGlobal()
+	return args:registerGlobal():register()
 end
 
 function options.getRegisteredCommand(cmd)
@@ -172,36 +198,140 @@ local function untranslateCmd(c)
 end
 
 local function translateCmd(c)
+	return c
+end
+
+local function untranslateOption(c)
+	return 
+		c:match("%-(%w)")
+		or c:match("%-%-(%w+)")
+end
+
+local function translateOption(c)
 	if (#c == 1) then
 		return '-'..c
 	end
-	return c
+	return '--'..c
 end
 
 function options.parseCommandLine(args)
 	local cmdName = args[1]
-	return cmdName and commandRegisters[untranslateCmd(cmdName)]
+	local ret = cmdName and commandRegisters[untranslateCmd(cmdName)]
+
+	if (ret) then
+		for k,v in ipairs(ret.options) do
+			v:register()
+		end
+
+		local i = 2
+
+		while (i<=#args) do
+			local arg = args[i]
+			local optname = untranslateOption(arg)
+
+			if (optname) then
+				local opt = optionRegisters[optname]
+				if (opt) then
+					if (opt.hasArg or opt.multi) then
+						i = i+1
+						opt:trigger(args[i])
+					else
+						opt:trigger()
+					end
+				else
+					print(string.format("Warning: ignored unknown option '%s'", arg))
+				end
+			else
+				table.insert(contents, arg)
+			end
+
+			i = i+1
+		end
+	end
+
+
+	return ret
 end
 
 function options.parseConfigFile(args)
 end
 
+------------------------------------------------------
+-- help functions
+------------------------------------------------------
+
+local function constructDesc(desc, prefix)
+	prefix = prefix or ''
+	if (type(desc) == 'table') then
+		return prefix..table.concat(desc, '\n'..prefix)
+	elseif (desc) then
+		return prefix..desc
+	else
+		return ""
+	end
+end
+
+local function constructName(name)
+	local out = {translateCmd(name[1])}
+	if (#name > 1) then
+		local c = ' ('
+		for i = 2, #name do
+			table.insert(out, c)
+			c = ', '
+			table.insert(out, translateCmd(name[i]))
+		end
+		table.insert(out, ')')
+	end
+	return table.concat(out)
+end
+
+function Command:printHelp()
+	print(constructName(self.name)..": "..constructDesc(self.introduce))
+	print("usage: fbmake "..self.name[1].." " .. self.usage)
+	print()
+	print(constructDesc(self.description))
+
+	if (#self.options >= 1) then
+		print("Valid options:")
+
+		for i,v in ipairs(self.options) do
+			v:printDesciption()
+		end
+		print()
+	end
+
+	if (#globalOptions >= 1) then
+		print("Global options:")
+		for i,v in ipairs(globalOptions) do
+			v:printDesciption()
+		end
+		print()
+	end
+
+end
+
+function Option:printDesciption()
+	for i,v in ipairs(self.name) do
+		local out = {}
+		table.insert(out, '  ')
+		table.insert(out, translateOption(v))
+		if (self.hasArg) then
+			table.insert(out, ' ARG')
+		end
+		table.insert(out, " :")
+		print(table.concat(out))
+	end
+
+	print(constructDesc(self.description, '\t'))
+end
+
 function options.printHelp()
 	print("Available subcommands:")
 	for i,v in ipairs(commands) do
-		local out = {'   ', translateCmd(v.name[1])}
-		if (#v.name > 1) then
-			local c = ' ('
-			for i = 2, #v.name do
-				table.insert(out, c)
-				c = ', '
-				table.insert(out, translateCmd(v.name[i]))
-			end
-			table.insert(out, ')')
-		end
-		print(table.concat(out))
-		print("\t"..v.description)
+		print('   ' .. constructName(v.name))
+		print(constructDesc(v.introduce, '\t'))
 	end
+	print()
 end
 
 
