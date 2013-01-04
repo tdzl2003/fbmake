@@ -14,6 +14,7 @@
 -- read LICENSE.md for more informations.
 
 local path = {}
+_G.path = path
 
 --current = fbmakelib.getcwd()
 
