@@ -45,7 +45,6 @@ options.Command = CommandMT
 
 -- default field values of command.
 Command.introduce = ""
-Command.description = ""
 Command.usage = ""
 function Command:run()
 end
@@ -289,7 +288,9 @@ function Command:printHelp()
 	print(constructName(self.name)..": "..constructDesc(self.introduce))
 	print("usage: fbmake "..self.name[1].." " .. self.usage)
 	print()
-	print(constructDesc(self.description))
+	if (self.description) then
+		print(constructDesc(self.description))
+	end
 
 	if (#self.options >= 1) then
 		print("Valid options:")
@@ -328,8 +329,10 @@ end
 function options.printHelp()
 	print("Available subcommands:")
 	for i,v in ipairs(commands) do
-		print('   ' .. constructName(v.name))
-		print(constructDesc(v.introduce, '\t'))
+		if (not v.hideInHelp) then
+			print('   ' .. constructName(v.name))
+			print(constructDesc(v.introduce, '\t'))
+		end
 	end
 	print()
 end
