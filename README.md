@@ -21,6 +21,15 @@ Documentation
 -------------
 
 
+Installation
+------------
+
+You should build luajit executable first.
+Follow the [luajit installation guide](http://luajit.org/install.html)
+
+After luajit builded, copy binaries into fbmake directory, and set path environment or alias for fbmake shell script.
+
+type "fbmake -v" to check if fbmake is ok to use.
 
 History
 -------
