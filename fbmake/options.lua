@@ -125,6 +125,7 @@ function Option:register()
 	end
 
 	self.registered = true
+	return self
 end
 
 function Option:unregister()
@@ -136,6 +137,7 @@ function Option:unregister()
 		optionRegisters[v] = nil
 	end
 	self.registered = nil
+	return self
 end
 
 function Option:registerGlobal()
@@ -191,8 +193,8 @@ end
 
 local function untranslateCmd(c)
 	return 
-		c:match("%-(%w)")
-		or c:match("%-%-(%w+)")
+		c:match("%-%-([%w%.%-%_]+)")
+		or c:match("%-(%w)")
 		or c
 end
 
@@ -202,8 +204,8 @@ end
 
 local function untranslateOption(c)
 	return 
+		c:match("%-%-([%w%.%-%_]+)") or 
 		c:match("%-(%w)")
-		or c:match("%-%-(%w+)")
 end
 
 local function translateOption(c)
@@ -252,7 +254,40 @@ function options.parseCommandLine(args)
 	return ret
 end
 
-function options.parseConfigFile(args)
+function options.parseConfigFile(fn)
+	local fd = io.open(fn)
+	local lineno = 0
+	local namespace = ""
+
+	for s in fd:lines() do
+		lineno = lineno + 1
+		local ns = s:match("%[([^%]]+)%]")
+		if (ns) then
+			namespace = ns
+		else
+			local k,v = s:match("([%w%.%-%_]+)%s%=(.*)")
+			if k then
+				local optname = namespace..'.'..k
+				local opt = optionRegisters[optname]
+				if (opt) then
+					if (opt.hasArg or opt.multi) then
+						opt:trigger(v)
+					else
+						opt:trigger()
+					end
+				else
+					print(string.format(
+						"%s(%d): Warning: ignored unknown option '%s'", 
+						fn,
+						lineno,
+						optname))
+				end
+			elseif (s~= "") then
+				table.insert(contents, v)
+			end
+		end
+	end
+	fd:close()
 end
 
 ------------------------------------------------------

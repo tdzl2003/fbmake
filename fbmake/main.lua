@@ -57,7 +57,7 @@ options.registerCommand{
 			print()
 		end
 	end,
-	noConfigFile = true,
+	--noConfigFile = true,
 	hideInHelp = true,
 }
 
@@ -66,13 +66,14 @@ options.registerCommand{
 	introduce = "Print version of fbmake tool.",
 	--usage = "",
 	run = function()
+	print(unpack(options.getContents()))
 		print(string.format("FBMake, version %s", _G.FBMAKE_VERSION))
 		print("   Copyright (C) 2013, DengYun")
 		print()
 		print("FBMake is open source software, see http://github.com/tdzl2003/fbmake")
 		print()
 	end,
-	noConfigFile = true,
+	--noConfigFile = true,
 	hideInHelp = true,
 }
 
@@ -93,7 +94,7 @@ if (command and not command.noConfigFile) then
 	configFiles:unregister()
 
 	for i,v in ipairs(configFiles.values) do
-		options.parseConfigFile(configFiles)
+		options.parseConfigFile(v)
 	end
 end
 
